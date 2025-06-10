@@ -2,5 +2,5 @@
 
 project is live at:
 
-**[https://vercel.com/adityas-projects-c11ae2fc/v0-linkedin-job-scraper](https://vercel.com/adityas-projects-c11ae2fc/v0-linkedin-job-scraper)**
+[**[https://vercel.com/adityas-projects-c11ae2fc/v0-linkedin-job-scraper](https://vercel.com/adityas-projects-c11ae2fc/v0-linkedin-job-scraper)**](https://v0-linkedin-job-scraper-seven.vercel.app/)
 
