@@ -42,6 +42,13 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
   const startX = useRef(0)
   const isDragging = useRef(false)
 
+  // Add these new state variables and refs after the existing ones
+  const [isSwipeActive, setIsSwipeActive] = useState(false)
+  const swipeContainerRef = useRef<HTMLDivElement>(null)
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  const isSwipingRef = useRef(false)
+  const swipeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   // Enhanced audio initialization
   useEffect(() => {
     // Success sound (higher pitch, more pleasant)
@@ -145,14 +152,154 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
     }
   }
 
+  // Add this effect to handle scroll prevention during swipes
+  useEffect(() => {
+    const preventScroll = (e: TouchEvent) => {
+      if (isSwipeActive || isSwipingRef.current) {
+        e.preventDefault()
+      }
+    }
+
+    const preventScrollWheel = (e: WheelEvent) => {
+      if (isSwipeActive || isSwipingRef.current) {
+        e.preventDefault()
+      }
+    }
+
+    if (isMobile) {
+      // Prevent scroll during swipe on mobile
+      document.addEventListener("touchmove", preventScroll, { passive: false })
+      document.addEventListener("wheel", preventScrollWheel, { passive: false })
+
+      // Also prevent scroll on the body
+      if (isSwipeActive) {
+        document.body.style.overflow = "hidden"
+        document.body.style.position = "fixed"
+        document.body.style.width = "100%"
+      } else {
+        document.body.style.overflow = ""
+        document.body.style.position = ""
+        document.body.style.width = ""
+      }
+    }
+
+    return () => {
+      document.removeEventListener("touchmove", preventScroll)
+      document.removeEventListener("wheel", preventScrollWheel)
+      // Restore scroll when component unmounts
+      document.body.style.overflow = ""
+      document.body.style.position = ""
+      document.body.style.width = ""
+    }
+  }, [isSwipeActive, isMobile])
+
+  // Add this effect to handle touch events for better mobile support
+  useEffect(() => {
+    const container = swipeContainerRef.current
+    if (!container || !isMobile) return
+
+    const handleTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      touchStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        time: Date.now(),
+      }
+
+      // Clear any existing timeout
+      if (swipeTimeoutRef.current) {
+        clearTimeout(swipeTimeoutRef.current)
+      }
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!touchStartRef.current) return
+
+      const touch = e.touches[0]
+      const deltaX = touch.clientX - touchStartRef.current.x
+      const deltaY = touch.clientY - touchStartRef.current.y
+      const absDeltaX = Math.abs(deltaX)
+      const absDeltaY = Math.abs(deltaY)
+
+      // Determine if this is a horizontal swipe (more horizontal than vertical movement)
+      if (absDeltaX > 10 && absDeltaX > absDeltaY * 1.5) {
+        if (!isSwipingRef.current) {
+          isSwipingRef.current = true
+          setIsSwipeActive(true)
+        }
+        // Prevent default to stop scrolling
+        e.preventDefault()
+      } else if (absDeltaY > absDeltaX * 1.5 && absDeltaY > 10) {
+        // This is a vertical scroll, allow it
+        if (isSwipingRef.current) {
+          isSwipingRef.current = false
+          setIsSwipeActive(false)
+        }
+      }
+    }
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!touchStartRef.current) return
+
+      const touch = e.changedTouches[0]
+      const deltaX = touch.clientX - touchStartRef.current.x
+      const deltaY = touch.clientY - touchStartRef.current.y
+      const deltaTime = Date.now() - touchStartRef.current.time
+      const absDeltaX = Math.abs(deltaX)
+      const absDeltaY = Math.abs(deltaY)
+
+      // Check if this was a valid swipe
+      if (isSwipingRef.current && absDeltaX > 50 && absDeltaX > absDeltaY && deltaTime < 500) {
+        const isRightSwipe = deltaX > 0
+        handleSwipe(isRightSwipe)
+      }
+
+      // Reset swipe state with a small delay to ensure smooth transition
+      swipeTimeoutRef.current = setTimeout(() => {
+        isSwipingRef.current = false
+        setIsSwipeActive(false)
+        touchStartRef.current = null
+      }, 100)
+    }
+
+    const handleTouchCancel = () => {
+      // Reset swipe state on touch cancel
+      swipeTimeoutRef.current = setTimeout(() => {
+        isSwipingRef.current = false
+        setIsSwipeActive(false)
+        touchStartRef.current = null
+      }, 100)
+    }
+
+    container.addEventListener("touchstart", handleTouchStart, { passive: true })
+    container.addEventListener("touchmove", handleTouchMove, { passive: false })
+    container.addEventListener("touchend", handleTouchEnd, { passive: true })
+    container.addEventListener("touchcancel", handleTouchCancel, { passive: true })
+
+    return () => {
+      container.removeEventListener("touchstart", handleTouchStart)
+      container.removeEventListener("touchmove", handleTouchMove)
+      container.removeEventListener("touchend", handleTouchEnd)
+      container.removeEventListener("touchcancel", handleTouchCancel)
+
+      if (swipeTimeoutRef.current) {
+        clearTimeout(swipeTimeoutRef.current)
+      }
+    }
+  }, [isMobile])
+
+  // Update the handleDragStart function
   const handleDragStart = (_: any, info: PanInfo) => {
+    if (isMobile) {
+      setIsSwipeActive(true)
+      isSwipingRef.current = true
+    }
     startX.current = info.point.x
     isDragging.current = true
   }
 
+  // Update the handleDragEnd function
   const handleDragEnd = (_: any, info: PanInfo) => {
-    if (!isDragging.current) return
-
     const threshold = 100
     const swipeDistance = info.offset.x
     const velocity = Math.abs(info.velocity.x)
@@ -168,12 +315,17 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
     if (Math.abs(swipeDistance) > threshold || velocity > 500) {
       // Determine if it's a right swipe (interested) or left swipe (not interested)
       const isInterested = swipeDirection === "right"
-      handleSwipe(isInterested, false) // false = swipe action, not button click
+      handleSwipe(isInterested)
     } else {
       x.set(0) // Reset position if swipe wasn't strong enough
     }
 
-    isDragging.current = false
+    // Reset swipe state after a short delay
+    setTimeout(() => {
+      setIsSwipeActive(false)
+      isSwipingRef.current = false
+      isDragging.current = false
+    }, 300)
   }
 
   const handleSwipe = (interested: boolean, isButtonClick = false) => {
@@ -269,8 +421,9 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
     )
   }
 
+  // Update the return statement to add the ref to the container div
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" ref={swipeContainerRef}>
       {/* Swipe splash effect */}
       <SwipeSplash direction={swipeDirection} onComplete={handleSplashComplete} />
 
@@ -339,6 +492,7 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
           style={{ x, rotate, opacity, scale }}
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.2}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           whileDrag={{ scale: 1.05, rotateZ: x.get() / 10 }}
@@ -488,6 +642,7 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
         <div className="text-center text-gray-400 text-sm mt-4 space-y-1">
           <p>Swipe left to skip, swipe right to save</p>
           <p className="text-xs">Tap ❤️ to open LinkedIn • Saved jobs → Cold emails</p>
+          {isMobile && isSwipeActive && <p className="text-xs text-yellow-400">🔒 Scroll locked during swipe</p>}
         </div>
       )}
     </div>
