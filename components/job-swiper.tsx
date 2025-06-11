@@ -34,20 +34,9 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
   const swipeAudioRef = useRef<HTMLAudioElement | null>(null)
 
   const x = useMotionValue(0)
-  const rotate = useTransform(x, [-200, 200], [-25, 25])
+  const rotate = useTransform(x, [-200, 200], [-15, 15])
   const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0, 1, 1, 1, 0])
-  const scale = useTransform(x, [-200, 0, 200], [0.8, 1, 0.8])
-
-  // Track swipe start position for better mobile detection
-  const startX = useRef(0)
-  const isDragging = useRef(false)
-
-  // Add these new state variables and refs after the existing ones
-  const [isSwipeActive, setIsSwipeActive] = useState(false)
-  const swipeContainerRef = useRef<HTMLDivElement>(null)
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
-  const isSwipingRef = useRef(false)
-  const swipeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const scale = useTransform(x, [-200, 0, 200], [0.9, 1, 0.9])
 
   // Enhanced audio initialization
   useEffect(() => {
@@ -69,7 +58,7 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
     // Hide instructions after 5 seconds
     const timer = setTimeout(() => {
       setShowInstructions(false)
-    }, 8000)
+    }, 6000)
 
     return () => clearTimeout(timer)
   }, [])
@@ -152,180 +141,23 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
     }
   }
 
-  // Add this effect to handle scroll prevention during swipes
-  useEffect(() => {
-    const preventScroll = (e: TouchEvent) => {
-      if (isSwipeActive || isSwipingRef.current) {
-        e.preventDefault()
-      }
-    }
-
-    const preventScrollWheel = (e: WheelEvent) => {
-      if (isSwipeActive || isSwipingRef.current) {
-        e.preventDefault()
-      }
-    }
-
-    if (isMobile) {
-      // Prevent scroll during swipe on mobile
-      document.addEventListener("touchmove", preventScroll, { passive: false })
-      document.addEventListener("wheel", preventScrollWheel, { passive: false })
-
-      // Also prevent scroll on the body
-      if (isSwipeActive) {
-        document.body.style.overflow = "hidden"
-        document.body.style.position = "fixed"
-        document.body.style.width = "100%"
-      } else {
-        document.body.style.overflow = ""
-        document.body.style.position = ""
-        document.body.style.width = ""
-      }
-    }
-
-    return () => {
-      document.removeEventListener("touchmove", preventScroll)
-      document.removeEventListener("wheel", preventScrollWheel)
-      // Restore scroll when component unmounts
-      document.body.style.overflow = ""
-      document.body.style.position = ""
-      document.body.style.width = ""
-    }
-  }, [isSwipeActive, isMobile])
-
-  // Add this effect to handle touch events for better mobile support
-  useEffect(() => {
-    const container = swipeContainerRef.current
-    if (!container || !isMobile) return
-
-    const handleTouchStart = (e: TouchEvent) => {
-      const touch = e.touches[0]
-      touchStartRef.current = {
-        x: touch.clientX,
-        y: touch.clientY,
-        time: Date.now(),
-      }
-
-      // Clear any existing timeout
-      if (swipeTimeoutRef.current) {
-        clearTimeout(swipeTimeoutRef.current)
-      }
-    }
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!touchStartRef.current) return
-
-      const touch = e.touches[0]
-      const deltaX = touch.clientX - touchStartRef.current.x
-      const deltaY = touch.clientY - touchStartRef.current.y
-      const absDeltaX = Math.abs(deltaX)
-      const absDeltaY = Math.abs(deltaY)
-
-      // Determine if this is a horizontal swipe (more horizontal than vertical movement)
-      if (absDeltaX > 10 && absDeltaX > absDeltaY * 1.5) {
-        if (!isSwipingRef.current) {
-          isSwipingRef.current = true
-          setIsSwipeActive(true)
-        }
-        // Prevent default to stop scrolling
-        e.preventDefault()
-      } else if (absDeltaY > absDeltaX * 1.5 && absDeltaY > 10) {
-        // This is a vertical scroll, allow it
-        if (isSwipingRef.current) {
-          isSwipingRef.current = false
-          setIsSwipeActive(false)
-        }
-      }
-    }
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (!touchStartRef.current) return
-
-      const touch = e.changedTouches[0]
-      const deltaX = touch.clientX - touchStartRef.current.x
-      const deltaY = touch.clientY - touchStartRef.current.y
-      const deltaTime = Date.now() - touchStartRef.current.time
-      const absDeltaX = Math.abs(deltaX)
-      const absDeltaY = Math.abs(deltaY)
-
-      // Check if this was a valid swipe
-      if (isSwipingRef.current && absDeltaX > 50 && absDeltaX > absDeltaY && deltaTime < 500) {
-        const isRightSwipe = deltaX > 0
-        handleSwipe(isRightSwipe)
-      }
-
-      // Reset swipe state with a small delay to ensure smooth transition
-      swipeTimeoutRef.current = setTimeout(() => {
-        isSwipingRef.current = false
-        setIsSwipeActive(false)
-        touchStartRef.current = null
-      }, 100)
-    }
-
-    const handleTouchCancel = () => {
-      // Reset swipe state on touch cancel
-      swipeTimeoutRef.current = setTimeout(() => {
-        isSwipingRef.current = false
-        setIsSwipeActive(false)
-        touchStartRef.current = null
-      }, 100)
-    }
-
-    container.addEventListener("touchstart", handleTouchStart, { passive: true })
-    container.addEventListener("touchmove", handleTouchMove, { passive: false })
-    container.addEventListener("touchend", handleTouchEnd, { passive: true })
-    container.addEventListener("touchcancel", handleTouchCancel, { passive: true })
-
-    return () => {
-      container.removeEventListener("touchstart", handleTouchStart)
-      container.removeEventListener("touchmove", handleTouchMove)
-      container.removeEventListener("touchend", handleTouchEnd)
-      container.removeEventListener("touchcancel", handleTouchCancel)
-
-      if (swipeTimeoutRef.current) {
-        clearTimeout(swipeTimeoutRef.current)
-      }
-    }
-  }, [isMobile])
-
-  // Update the handleDragStart function
-  const handleDragStart = (_: any, info: PanInfo) => {
-    if (isMobile) {
-      setIsSwipeActive(true)
-      isSwipingRef.current = true
-    }
-    startX.current = info.point.x
-    isDragging.current = true
-  }
-
-  // Update the handleDragEnd function
   const handleDragEnd = (_: any, info: PanInfo) => {
-    const threshold = 100
+    const threshold = 80
     const swipeDistance = info.offset.x
     const velocity = Math.abs(info.velocity.x)
     const swipeDirection = swipeDistance > 0 ? "right" : "left"
 
-    console.log("Swipe direction:", swipeDirection, "Distance:", swipeDistance, "Velocity:", velocity)
-
     // Play swipe sound for any significant drag
-    if (Math.abs(swipeDistance) > 50) {
+    if (Math.abs(swipeDistance) > 40) {
       playSound("swipe")
     }
 
-    if (Math.abs(swipeDistance) > threshold || velocity > 500) {
-      // Determine if it's a right swipe (interested) or left swipe (not interested)
+    if (Math.abs(swipeDistance) > threshold || velocity > 400) {
       const isInterested = swipeDirection === "right"
       handleSwipe(isInterested)
     } else {
       x.set(0) // Reset position if swipe wasn't strong enough
     }
-
-    // Reset swipe state after a short delay
-    setTimeout(() => {
-      setIsSwipeActive(false)
-      isSwipingRef.current = false
-      isDragging.current = false
-    }, 300)
   }
 
   const handleSwipe = (interested: boolean, isButtonClick = false) => {
@@ -335,37 +167,27 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
     setSwipeDirection(interested ? "right" : "left")
 
     if (interested) {
-      // Enhanced feedback for right swipe (interested)
       playSound("success")
-      triggerVibration([100, 50, 100, 50, 100])
+      triggerVibration([100, 50, 100])
 
       // Only redirect to LinkedIn if it's a button click (heart button)
       if (isButtonClick && currentJob.jobLink) {
-        // Use a more reliable method for mobile redirect
         setTimeout(() => {
           try {
             if (isMobile) {
-              // For mobile, use location.href for better compatibility
               window.location.href = currentJob.jobLink!
             } else {
-              // For desktop, use window.open
               window.open(currentJob.jobLink, "_blank", "noopener,noreferrer")
             }
           } catch (error) {
             console.error("Failed to open LinkedIn URL:", error)
-            // Fallback: try the other method
-            if (isMobile) {
-              window.open(currentJob.jobLink!, "_blank", "noopener,noreferrer")
-            } else {
-              window.location.href = currentJob.jobLink!
-            }
+            window.open(currentJob.jobLink!, "_blank", "noopener,noreferrer")
           }
-        }, 500)
+        }, 300)
       }
     } else {
-      // Enhanced feedback for left swipe (not interested)
       playSound("reject")
-      triggerVibration([200, 100, 200])
+      triggerVibration([150, 100])
     }
 
     onJobAction(currentJob, interested)
@@ -378,7 +200,7 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
       } else {
         setJobs([])
       }
-    }, 300)
+    }, 250)
   }
 
   const handleSplashComplete = () => {
@@ -397,22 +219,21 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
 
   if (!currentJob) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-8">
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6 }}
-          className="space-y-6"
+          className="space-y-4"
         >
-          <div className="text-6xl mb-4">🎉</div>
-          <h3 className="text-2xl font-bold mb-4 text-white">Great job!</h3>
-          <p className="text-gray-300 mb-6 max-w-md mx-auto">
-            You've reviewed all available positions. Check back later for new opportunities or generate cold emails for
-            the jobs you liked.
+          <div className="text-5xl mb-3">🎉</div>
+          <h3 className="text-xl font-bold mb-3 text-white">Great job!</h3>
+          <p className="text-gray-300 mb-4 max-w-sm mx-auto text-sm">
+            You've reviewed all available positions. Check back later for new opportunities!
           </p>
           <Button
             onClick={() => setCurrentIndex(0)}
-            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 px-8 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:shadow-purple-500/50"
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-2 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
           >
             Start Over
           </Button>
@@ -421,154 +242,149 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
     )
   }
 
-  // Update the return statement to add the ref to the container div
   return (
-    <div className="space-y-6" ref={swipeContainerRef}>
+    <div className="space-y-3 px-2">
       {/* Swipe splash effect */}
       <SwipeSplash direction={swipeDirection} onComplete={handleSplashComplete} />
 
-      {/* Instructions Alert */}
+      {/* Compact Instructions Alert */}
       {showInstructions && (
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.6 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.4 }}
         >
-          <Alert className="max-w-md mx-auto bg-blue-900/70 border-blue-500/30 backdrop-blur-sm shadow-lg shadow-blue-500/10">
-            <Info className="h-4 w-4 text-blue-400" />
-            <AlertDescription className="text-blue-300 text-sm">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Heart className="h-4 w-4 text-green-400" />
-                  <span>
-                    <strong>Tap heart:</strong> Opens LinkedIn job page
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-green-400">👆</span>
-                  <span>
-                    <strong>Swipe right:</strong> Saves to interested jobs
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <X className="h-4 w-4 text-red-400" />
-                  <span>
-                    <strong>Swipe left:</strong> Skip this job
-                  </span>
-                </div>
-                <div className="text-xs text-blue-200 mt-2">💡 Saved jobs can be used to generate cold emails!</div>
+          <Alert className="max-w-sm mx-auto bg-blue-900/70 border-blue-500/30 backdrop-blur-sm shadow-lg py-2">
+            <Info className="h-3 w-3 text-blue-400" />
+            <AlertDescription className="text-blue-300 text-xs">
+              <div className="flex items-center justify-between">
+                <span>❤️ = LinkedIn • 👆 = Save • ❌ = Skip</span>
               </div>
             </AlertDescription>
           </Alert>
         </motion.div>
       )}
 
-      {/* Data source indicator */}
+      {/* Compact Data source indicator */}
       {(dataSource === "spreadsheet" || dataSource === "manual") && (
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <Alert className="max-w-md mx-auto bg-gray-900/70 border-green-500/30 backdrop-blur-sm shadow-lg shadow-green-500/10">
-            <CheckCircle className="h-4 w-4 text-green-400" />
-            <AlertDescription className="flex items-center justify-between text-green-300">
-              <span>✅ Using your LinkedIn job data! Showing {jobs.length} jobs.</span>
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+          <Alert className="max-w-sm mx-auto bg-gray-900/70 border-green-500/30 backdrop-blur-sm shadow-lg py-2">
+            <CheckCircle className="h-3 w-3 text-green-400" />
+            <AlertDescription className="flex items-center justify-between text-green-300 text-xs">
+              <span>✅ {jobs.length} LinkedIn jobs loaded</span>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="border-green-500/30 text-green-400 hover:bg-green-500/10 hover:shadow-green-500/20 transition-all duration-300"
+                className="border-green-500/30 text-green-400 hover:bg-green-500/10 h-6 px-2 text-xs"
               >
-                <RefreshCw className={`h-3 w-3 mr-1 ${refreshing ? "animate-spin" : ""}`} />
-                {refreshing ? "Refreshing..." : "Refresh"}
+                <RefreshCw className={`h-2 w-2 mr-1 ${refreshing ? "animate-spin" : ""}`} />
+                {refreshing ? "..." : "↻"}
               </Button>
             </AlertDescription>
           </Alert>
         </motion.div>
       )}
 
-      <div className="relative max-w-md mx-auto h-[650px] md:h-[650px]">
+      {/* Compact Job Card - Fits in viewport */}
+      <div className="relative max-w-sm mx-auto" style={{ height: isMobile ? "calc(100vh - 280px)" : "500px" }}>
         <motion.div
           className="absolute inset-0"
           style={{ x, rotate, opacity, scale }}
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.2}
-          onDragStart={handleDragStart}
+          dragElastic={0.3}
           onDragEnd={handleDragEnd}
-          whileDrag={{ scale: 1.05, rotateZ: x.get() / 10 }}
+          whileDrag={{ scale: 1.02, rotateZ: x.get() / 15 }}
           animate={{
             boxShadow:
-              x.get() > 50
-                ? "0 0 40px rgba(34, 197, 94, 0.6), 0 0 80px rgba(34, 197, 94, 0.3)"
-                : x.get() < -50
-                  ? "0 0 40px rgba(239, 68, 68, 0.6), 0 0 80px rgba(239, 68, 68, 0.3)"
-                  : "0 0 30px rgba(147, 51, 234, 0.4), 0 0 60px rgba(147, 51, 234, 0.2)",
+              x.get() > 40
+                ? "0 0 30px rgba(34, 197, 94, 0.6), 0 0 60px rgba(34, 197, 94, 0.3)"
+                : x.get() < -40
+                  ? "0 0 30px rgba(239, 68, 68, 0.6), 0 0 60px rgba(239, 68, 68, 0.3)"
+                  : "0 0 20px rgba(147, 51, 234, 0.4), 0 0 40px rgba(147, 51, 234, 0.2)",
           }}
           transition={{ duration: 0.2 }}
         >
-          <Card className="h-full cursor-grab active:cursor-grabbing bg-gray-800/95 border-gray-600/50 backdrop-blur-md shadow-2xl min-h-[600px] md:min-h-[700px] overflow-auto">
-            <CardHeader className="pb-6 p-4 md:p-8">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <CardTitle className="text-xl md:text-2xl text-white font-bold leading-tight mb-3">
+          <Card className="h-full cursor-grab active:cursor-grabbing bg-gray-800/95 border-gray-600/50 backdrop-blur-md shadow-2xl overflow-hidden">
+            {/* Compact Header */}
+            <CardHeader className="pb-3 p-4">
+              <div className="flex justify-between items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-lg font-bold leading-tight mb-2 text-white truncate">
                     {currentJob.title}
                   </CardTitle>
-                  <CardDescription className="flex items-center gap-2 text-gray-300 text-base md:text-lg">
-                    <Building className="h-4 w-4 md:h-5 md:w-5 text-blue-400" />
-                    {currentJob.company}
+                  <CardDescription className="flex items-center gap-2 text-gray-300 text-sm">
+                    <Building className="h-3 w-3 text-blue-400 flex-shrink-0" />
+                    <span className="truncate">{currentJob.company}</span>
                   </CardDescription>
                 </div>
                 <Badge
                   variant="secondary"
-                  className="bg-purple-500/20 text-purple-300 border-purple-500/30 ml-3 px-2 py-1 md:px-4 md:py-2 text-sm md:text-lg"
+                  className="bg-purple-500/20 text-purple-300 border-purple-500/30 px-2 py-1 text-xs flex-shrink-0"
                 >
                   {currentJob.type}
                 </Badge>
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-4 md:space-y-6 pb-24 p-4 md:p-8">
-              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-6 text-base md:text-lg">
-                <div className="flex items-center gap-2 text-gray-300">
-                  <MapPin className="h-4 w-4 md:h-5 md:w-5 text-green-400" />
+            {/* Compact Content */}
+            <CardContent className="space-y-3 pb-16 p-4 pt-0">
+              {/* Location and Date - Compact Row */}
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-1 text-gray-300 min-w-0 flex-1">
+                  <MapPin className="h-3 w-3 text-green-400 flex-shrink-0" />
                   <span className="truncate">{currentJob.location}</span>
                 </div>
-                <div className="flex items-center gap-2 text-gray-300">
-                  <Clock className="h-4 w-4 md:h-5 md:w-5 text-yellow-400" />
-                  {currentJob.postedDate}
+                <div className="flex items-center gap-1 text-gray-300 flex-shrink-0 ml-2">
+                  <Clock className="h-3 w-3 text-yellow-400" />
+                  <span className="text-xs">{currentJob.postedDate}</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-green-400 font-semibold text-xl md:text-2xl">
-                <DollarSign className="h-5 w-5 md:h-6 md:w-6" />
-                {currentJob.salary}
+              {/* Salary */}
+              <div className="flex items-center gap-2 text-green-400 font-semibold text-lg">
+                <DollarSign className="h-4 w-4" />
+                <span className="truncate">{currentJob.salary}</span>
               </div>
 
-              <p className="text-gray-300 leading-relaxed text-base md:text-lg">{currentJob.description}</p>
+              {/* Description - Truncated */}
+              <p className="text-gray-300 leading-relaxed text-sm line-clamp-3">{currentJob.description}</p>
 
+              {/* Skills - Compact */}
               {currentJob.skills.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-base md:text-lg text-white">Required Skills:</h4>
-                  <div className="flex flex-wrap gap-2 md:gap-3">
-                    {currentJob.skills.map((skill, index) => (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm text-white">Skills:</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {currentJob.skills.slice(0, 6).map((skill, index) => (
                       <Badge
                         key={index}
                         variant="outline"
-                        className="text-xs md:text-sm bg-blue-500/10 text-blue-300 border-blue-500/30 hover:bg-blue-500/20 transition-colors px-2 py-0.5 md:px-3 md:py-1"
+                        className="text-xs bg-blue-500/10 text-blue-300 border-blue-500/30 px-2 py-0.5"
                       >
                         {skill}
                       </Badge>
                     ))}
+                    {currentJob.skills.length > 6 && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs bg-gray-500/10 text-gray-400 border-gray-500/30 px-2 py-0.5"
+                      >
+                        +{currentJob.skills.length - 6}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* LinkedIn link indicator */}
+              {/* LinkedIn link indicator - Compact */}
               {currentJob.jobLink && (
-                <div className="bg-blue-900/30 border border-blue-500/30 rounded-lg p-3">
-                  <div className="flex items-center gap-2 text-blue-300 text-sm">
-                    <ExternalLink className="h-4 w-4" />
-                    <span>Tap the ❤️ button to view this job on LinkedIn</span>
+                <div className="bg-blue-900/30 border border-blue-500/30 rounded-lg p-2">
+                  <div className="flex items-center gap-2 text-blue-300 text-xs">
+                    <ExternalLink className="h-3 w-3" />
+                    <span>Tap ❤️ to view on LinkedIn</span>
                   </div>
                 </div>
               )}
@@ -576,60 +392,50 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
           </Card>
         </motion.div>
 
-        {/* Enhanced glowing action buttons with better labels */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex gap-6 md:gap-10">
-          <motion.div whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}>
+        {/* Compact Action Buttons */}
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-8">
+          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
             <Button
               size="lg"
               onClick={() => handleSwipe(false, true)}
-              className="rounded-full w-16 h-16 md:w-20 md:h-20 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-0 shadow-lg transition-all duration-300 relative overflow-hidden group"
+              className="rounded-full w-14 h-14 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 border-0 shadow-lg transition-all duration-300 relative overflow-hidden group"
               style={{
-                boxShadow: "0 0 30px rgba(239, 68, 68, 0.5), 0 0 60px rgba(239, 68, 68, 0.2)",
+                boxShadow: "0 0 20px rgba(239, 68, 68, 0.5), 0 0 40px rgba(239, 68, 68, 0.2)",
               }}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-red-400 to-pink-400 opacity-0 group-hover:opacity-30 transition-opacity duration-300" />
-              <X className="h-6 w-6 md:h-8 md:w-8 text-white relative z-10" />
+              <X className="h-5 w-5 text-white" />
             </Button>
-            <div className="text-center mt-2">
-              <span className="text-xs text-gray-400">Skip</span>
-            </div>
           </motion.div>
-          <motion.div whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}>
+          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
             <Button
               size="lg"
               onClick={() => handleSwipe(true, true)}
-              className="rounded-full w-16 h-16 md:w-20 md:h-20 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 border-0 shadow-lg transition-all duration-300 relative overflow-hidden group"
+              className="rounded-full w-14 h-14 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 border-0 shadow-lg transition-all duration-300 relative overflow-hidden group"
               style={{
-                boxShadow: "0 0 30px rgba(34, 197, 94, 0.5), 0 0 60px rgba(34, 197, 94, 0.2)",
+                boxShadow: "0 0 20px rgba(34, 197, 94, 0.5), 0 0 40px rgba(34, 197, 94, 0.2)",
               }}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-400 opacity-0 group-hover:opacity-30 transition-opacity duration-300" />
-              <Heart className="h-6 w-6 md:h-8 md:w-8 text-white relative z-10" />
+              <Heart className="h-5 w-5 text-white" />
             </Button>
-            <div className="text-center mt-2">
-              <span className="text-xs text-gray-400">View & Save</span>
-            </div>
           </motion.div>
         </div>
 
-        {/* Enhanced swipe indicators */}
+        {/* Compact Swipe Indicators */}
         <motion.div
-          className="absolute top-1/2 left-8 transform -translate-y-1/2 text-4xl md:text-6xl"
+          className="absolute top-1/2 left-4 transform -translate-y-1/2 text-3xl"
           animate={{
-            opacity: x.get() < -50 ? 1 : 0,
-            scale: x.get() < -50 ? 1.3 : 0.8,
-            rotate: x.get() < -50 ? [0, -10, 10, 0] : 0,
+            opacity: x.get() < -40 ? 1 : 0,
+            scale: x.get() < -40 ? 1.2 : 0.8,
           }}
           transition={{ duration: 0.2 }}
         >
           ❌
         </motion.div>
         <motion.div
-          className="absolute top-1/2 right-8 transform -translate-y-1/2 text-4xl md:text-6xl"
+          className="absolute top-1/2 right-4 transform -translate-y-1/2 text-3xl"
           animate={{
-            opacity: x.get() > 50 ? 1 : 0,
-            scale: x.get() > 50 ? 1.3 : 0.8,
-            rotate: x.get() > 50 ? [0, -10, 10, 0] : 0,
+            opacity: x.get() > 40 ? 1 : 0,
+            scale: x.get() > 40 ? 1.2 : 0.8,
           }}
           transition={{ duration: 0.2 }}
         >
@@ -637,12 +443,10 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
         </motion.div>
       </div>
 
-      {/* Mobile swipe instructions */}
+      {/* Compact Mobile Instructions */}
       {isMobile && (
-        <div className="text-center text-gray-400 text-sm mt-4 space-y-1">
-          <p>Swipe left to skip, swipe right to save</p>
-          <p className="text-xs">Tap ❤️ to open LinkedIn • Saved jobs → Cold emails</p>
-          {isMobile && isSwipeActive && <p className="text-xs text-yellow-400">🔒 Scroll locked during swipe</p>}
+        <div className="text-center text-gray-400 text-xs mt-2">
+          <p>Swipe left ❌ • Swipe right 💾 • Tap ❤️ for LinkedIn</p>
         </div>
       )}
     </div>
@@ -651,33 +455,31 @@ export function JobSwiper({ onJobAction }: JobSwiperProps) {
 
 function JobCardSkeleton() {
   return (
-    <div className="relative max-w-md mx-auto h-[600px] md:h-[650px]">
+    <div className="relative max-w-sm mx-auto h-96 px-2">
       <Card className="h-full bg-gray-900/80 border-gray-700/50 backdrop-blur-md shadow-2xl">
-        <CardHeader className="p-4 md:p-8">
-          <div className="flex justify-between items-start">
+        <CardHeader className="p-4 pb-3">
+          <div className="flex justify-between items-start gap-3">
             <div className="space-y-2 flex-1">
-              <Skeleton className="h-6 md:h-8 w-3/4 bg-gray-700/50" />
-              <Skeleton className="h-4 md:h-4 w-1/2 bg-gray-700/50" />
+              <Skeleton className="h-5 w-3/4 bg-gray-700/50" />
+              <Skeleton className="h-4 w-1/2 bg-gray-700/50" />
             </div>
-            <Skeleton className="h-5 md:h-6 w-16 md:w-20 bg-gray-700/50" />
+            <Skeleton className="h-6 w-16 bg-gray-700/50" />
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-4 md:space-y-6 p-4 md:p-8">
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-4 w-24 md:w-32 bg-gray-700/50" />
-            <Skeleton className="h-4 w-20 md:w-24 bg-gray-700/50" />
+        <CardContent className="space-y-3 p-4 pt-0">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-4 w-24 bg-gray-700/50" />
+            <Skeleton className="h-4 w-20 bg-gray-700/50" />
           </div>
-          <Skeleton className="h-4 w-28 md:w-36 bg-gray-700/50" />
+          <Skeleton className="h-4 w-28 bg-gray-700/50" />
+          <Skeleton className="h-12 w-full bg-gray-700/50" />
           <div className="space-y-2">
-            <Skeleton className="h-16 md:h-20 w-full bg-gray-700/50" />
-          </div>
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-24 md:w-32 bg-gray-700/50" />
-            <div className="flex flex-wrap gap-2">
-              <Skeleton className="h-5 md:h-6 w-12 md:w-16 bg-gray-700/50" />
-              <Skeleton className="h-5 md:h-6 w-16 md:w-20 bg-gray-700/50" />
-              <Skeleton className="h-5 md:h-6 w-20 md:w-24 bg-gray-700/50" />
+            <Skeleton className="h-4 w-16 bg-gray-700/50" />
+            <div className="flex flex-wrap gap-1">
+              <Skeleton className="h-5 w-12 bg-gray-700/50" />
+              <Skeleton className="h-5 w-16 bg-gray-700/50" />
+              <Skeleton className="h-5 w-14 bg-gray-700/50" />
             </div>
           </div>
         </CardContent>
