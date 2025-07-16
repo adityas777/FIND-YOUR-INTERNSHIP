@@ -2,6 +2,7 @@
 
 project is live at:
 https://v0-linkedin-job-scraper-seven.vercel.app/
+toutube video- https://youtu.be/fnO97TZvsgg?si=17GuKju-OTKQeMFG
 ---
 🔍 FIND-YOUR-INTERNSHIP (AI-Powered Job Application Platform)
 An AI-powered web application that helps users discover, tailor, and apply to the latest LinkedIn "Easy Apply" jobs—all with a swipe.
